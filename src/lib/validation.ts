@@ -1,6 +1,7 @@
 import { AssetInput, conditionsFor, subKategoriMap } from "./types";
 
-const MAX_IMAGE_BYTES = 1.5 * 1024 * 1024;
+// Batas file 1 MB; data URL base64 ~1.37x ukuran file aslinya.
+const MAX_IMAGE_BYTES = Math.ceil(1024 * 1024 * 1.4);
 
 const str = (value: unknown): string =>
   typeof value === "string" ? value.trim() : "";

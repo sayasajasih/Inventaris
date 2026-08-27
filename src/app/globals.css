@@ -68,4 +68,10 @@ body {
   body.print-detail-mode .detail-print-header {
     display: block !important;
   }
+
+  body.print-detail-mode #detailModal img {
+    max-width: 10rem !important;
+    max-height: 10rem !important;
+    object-fit: contain !important;
+  }
 }

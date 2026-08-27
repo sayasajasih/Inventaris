@@ -403,7 +403,7 @@ export default function Dashboard() {
                         </td>
                         <td className="px-5 py-4">
                           <div className="flex items-start gap-4">
-                            <div className="h-16 w-16 flex-shrink-0 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm relative group-hover:border-brand-200 transition-colors mt-1">
+                            <div className="h-16 w-16 print:h-10 print:w-10 print:rounded-lg print:shadow-none flex-shrink-0 rounded-2xl bg-slate-50 flex items-center justify-center overflow-hidden border border-slate-100 shadow-sm relative group-hover:border-brand-200 transition-colors mt-1">
                               {asset.image ? (
                                 // eslint-disable-next-line @next/next/no-img-element
                                 <img
@@ -418,7 +418,7 @@ export default function Dashboard() {
                                   }
                                 />
                               ) : (
-                                <i className="ph-duotone ph-image text-slate-300 text-2xl" />
+                                <i className="ph-duotone ph-image text-slate-300 text-2xl print:text-base" />
                               )}
                             </div>
                             <div>

@@ -68,20 +68,22 @@ export default function AssetDetailModal({ asset, onClose }: Props) {
         </div>
 
         <div className="px-8 py-6 overflow-y-auto no-scrollbar bg-slate-50/30 flex-grow">
-          <div className="flex flex-col md:flex-row gap-8">
-            <div className="w-full md:w-1/3 flex-shrink-0">
-              <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm">
+          <div className="flex flex-col md:flex-row gap-8 print:gap-5">
+            <div className="w-full md:w-1/3 flex-shrink-0 print:w-40">
+              <div className="bg-white p-2 rounded-2xl border border-slate-100 shadow-sm print:p-1 print:rounded-lg print:shadow-none">
                 {asset.image ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img
                     src={asset.image}
                     alt="Foto Aset"
-                    className="w-full h-auto object-cover rounded-xl bg-slate-50"
+                    className="w-full h-auto object-cover rounded-xl bg-slate-50 print:rounded-md"
                   />
                 ) : (
                   <div className="w-full aspect-square flex flex-col items-center justify-center bg-slate-50 rounded-xl text-slate-400 border border-dashed border-slate-200">
-                    <i className="ph-duotone ph-image-square text-4xl mb-2" />
-                    <span className="text-sm font-medium">Tidak ada foto</span>
+                    <i className="ph-duotone ph-image-square text-4xl mb-2 print:text-2xl print:mb-1" />
+                    <span className="text-sm font-medium print:text-xs">
+                      Tidak ada foto
+                    </span>
                   </div>
                 )}
               </div>
