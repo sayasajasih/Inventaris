@@ -184,10 +184,10 @@ export default function Dashboard() {
               </div>
               <div>
                 <h1 className="text-xl font-bold bg-clip-text text-transparent bg-gradient-to-r from-slate-900 to-slate-700">
-                  InventarisKu
+                  Inventaris DP3AKB Kota Balikpapan
                 </h1>
                 <p className="text-xs font-medium text-slate-500 leading-none">
-                  Manajemen Aset Modern
+                  Manajemen Aset
                 </p>
               </div>
             </div>
