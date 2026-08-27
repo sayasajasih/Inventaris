@@ -1,36 +1,87 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# InventarisKu — Aplikasi Inventaris Aset Kantor
 
-## Getting Started
+Aplikasi manajemen inventaris aset kantor (frontend + backend) hasil konversi dari
+prototipe HTML statis menjadi aplikasi Next.js dengan API dan database.
 
-First, run the development server:
+## Fitur
+
+- Dashboard metrik: total kuantitas, kondisi baik, perlu perbaikan
+- CRUD aset (tambah, ubah, hapus) lewat REST API
+- Pencarian dan filter kategori, sub kategori, tahun pembelian, kondisi
+- Detail aset, foto aset (data URL, maks 1 MB), lightbox foto
+- Cetak daftar aset dan cetak detail satu aset (print stylesheet khusus)
+- Validasi di sisi server (kategori ↔ sub kategori ↔ kondisi harus konsisten)
+
+## Teknologi
+
+- Next.js 15 (App Router) + React 19 + TypeScript
+- Tailwind CSS 3 + Phosphor Icons
+- Postgres via [postgres.js](https://github.com/porsager/postgres)
+
+## Menjalankan secara lokal
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
+cp .env.example .env.local   # opsional, isi DATABASE_URL bila punya Postgres
+npm run dev                  # http://localhost:3000
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Tanpa `DATABASE_URL`, data disimpan di file `.data/assets.json` (mode fallback untuk
+pengembangan lokal). Dengan `DATABASE_URL`, tabel `assets` dibuat otomatis saat
+request pertama dan diisi dua data contoh.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Perintah lain:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm run lint    # ESLint
+npm run build   # build produksi
+```
 
-## Learn More
+## REST API
 
-To learn more about Next.js, take a look at the following resources:
+| Method | Endpoint           | Keterangan                   |
+| ------ | ------------------ | ---------------------------- |
+| GET    | `/api/assets`      | Daftar seluruh aset          |
+| POST   | `/api/assets`      | Tambah aset (ID digenerate)  |
+| GET    | `/api/assets/{id}` | Detail satu aset             |
+| PUT    | `/api/assets/{id}` | Perbarui aset                |
+| DELETE | `/api/assets/{id}` | Hapus aset                   |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Format body (POST/PUT):
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+```json
+{
+  "name": "Laptop MacBook Pro M3",
+  "noRegister": "0001",
+  "kodeBarang": "3.1.02.01",
+  "noPabrik": "M3-2024-X",
+  "noPolisi": "",
+  "category": "Peralatan dan Mesin",
+  "subCategory": "Peralatan Komputer TI",
+  "asalUsul": "Pembelian",
+  "qty": 2,
+  "price": 25000000,
+  "condition": "Baik",
+  "location": "Ruang IT",
+  "tahun": "2026",
+  "image": null
+}
+```
 
-## Deploy on Vercel
+Respons sukses selalu `{ "data": ... }`, respons gagal `{ "error": "pesan" }`.
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Deploy ke Vercel
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+1. Push repository ini ke GitHub.
+2. Di [vercel.com/new](https://vercel.com/new), import repository tersebut
+   (framework terdeteksi otomatis sebagai Next.js, tanpa konfigurasi tambahan).
+3. Siapkan database Postgres, misalnya lewat tab **Storage → Create Database →
+   Neon/Postgres** pada project Vercel, atau layanan lain (Supabase, Neon).
+4. Tambahkan environment variable `DATABASE_URL` (nilai connection string
+   Postgres, sertakan `?sslmode=require`) untuk environment Production,
+   Preview, dan Development.
+5. Deploy. Skema tabel dibuat otomatis pada request pertama ke API.
+
+> Tanpa `DATABASE_URL`, aplikasi tetap jalan di Vercel tetapi data hanya
+> bertahan sementara di memori instance serverless (hilang setelah instance
+> dimatikan), jadi wajib mengisi variabel ini untuk penggunaan sesungguhnya.

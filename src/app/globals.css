@@ -2,20 +2,70 @@
 @tailwind components;
 @tailwind utilities;
 
-:root {
-  --background: #ffffff;
-  --foreground: #171717;
+body {
+  background-color: #f8fafc;
+  background-image: radial-gradient(#e2e8f0 1px, transparent 1px);
+  background-size: 24px 24px;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+.no-scrollbar::-webkit-scrollbar {
+  display: none;
+}
+.no-scrollbar {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+
+@media print {
+  @page {
+    margin: 1cm;
+    size: auto;
+  }
+  body {
+    background: white !important;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-hide-shadow {
+    box-shadow: none !important;
+    border: none !important;
   }
 }
 
-body {
-  color: var(--foreground);
-  background: var(--background);
-  font-family: Arial, Helvetica, sans-serif;
+@media print {
+  body.print-detail-mode nav,
+  body.print-detail-mode main,
+  body.print-detail-mode #modalBackdrop,
+  body.print-detail-mode #formModal,
+  body.print-detail-mode #deleteModal,
+  body.print-detail-mode #imageViewerModal {
+    display: none !important;
+  }
+
+  body.print-detail-mode #detailModal {
+    position: relative !important;
+    display: block !important;
+    opacity: 1 !important;
+    background: white !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  body.print-detail-mode #detailModal > div {
+    transform: none !important;
+    box-shadow: none !important;
+    border: none !important;
+    max-width: 100% !important;
+    width: 100% !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
+
+  body.print-detail-mode .modal-action-buttons {
+    display: none !important;
+  }
+
+  body.print-detail-mode .detail-print-header {
+    display: block !important;
+  }
 }
