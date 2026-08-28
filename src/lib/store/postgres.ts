@@ -1,4 +1,4 @@
-import { neon } from "@neondatabase/serverless";
+import { Pool } from "pg";
 import { Asset, AssetInput } from "../types";
 import { AssetStore, nextAssetId, seedAssets } from "./types";
 
@@ -18,6 +18,7 @@ interface AssetRow {
   location: string;
   tahun: string;
   image: string | null;
+  created_at: Date;
 }
 
 const toAsset = (row: AssetRow): Asset => ({
@@ -38,34 +39,33 @@ const toAsset = (row: AssetRow): Asset => ({
   image: row.image,
 });
 
-const globalForNeon = globalThis as unknown as {
-  inventarisSql?: ReturnType<typeof neon>;
+const globalForPool = globalThis as unknown as {
+  inventarisPool?: Pool;
   inventarisReady?: Promise<void>;
 };
 
-function getSql() {
-  if (!globalForNeon.inventarisSql) {
+function getPool(): Pool {
+  if (!globalForPool.inventarisPool) {
     const connectionString = process.env.DATABASE_URL;
     if (!connectionString) {
       throw new Error("DATABASE_URL is not configured");
     }
-    globalForNeon.inventarisSql = neon(connectionString);
+    globalForPool.inventarisPool = new Pool({
+      connectionString,
+      max: 1,
+      idleTimeoutMillis: 20000,
+      ssl: connectionString.includes("sslmode=require")
+        ? { rejectUnauthorized: false }
+        : undefined,
+    });
   }
-  return globalForNeon.inventarisSql;
-}
-
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-function rows<T = Record<string, any>>(result: any): T[] {
-  if (Array.isArray(result)) return result as T[];
-  if (result && typeof result === "object" && "rows" in result)
-    return (result as { rows: T[] }).rows;
-  return [];
+  return globalForPool.inventarisPool;
 }
 
 async function migrate(): Promise<void> {
-  const sql = getSql();
+  const pool = getPool();
 
-  await sql`
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS assets (
       id           TEXT PRIMARY KEY,
       name         TEXT NOT NULL,
@@ -84,92 +84,150 @@ async function migrate(): Promise<void> {
       image        TEXT,
       created_at   TIMESTAMPTZ NOT NULL DEFAULT now()
     )
-  `;
+  `);
 
-  const countResult = await sql`SELECT count(*)::text AS count FROM assets`;
-  const countRows = rows<{ count: string }>(countResult);
-  const count = countRows[0]?.count ?? "0";
-  if (Number(count) === 0) {
+  const { rows } = await pool.query("SELECT count(*)::text AS count FROM assets");
+  const count = Number(rows[0]?.count ?? "0");
+
+  if (count === 0) {
     for (const asset of seedAssets) {
-      await sql`
-        INSERT INTO assets (id, name, no_register, kode_barang, no_pabrik, no_polisi, category, sub_category, asal_usul, qty, price, condition, location, tahun, image)
-        VALUES (${asset.id}, ${asset.name}, ${asset.noRegister}, ${asset.kodeBarang}, ${asset.noPabrik}, ${asset.noPolisi}, ${asset.category}, ${asset.subCategory}, ${asset.asalUsul}, ${asset.qty}, ${asset.price}, ${asset.condition}, ${asset.location}, ${asset.tahun}, ${asset.image})
-      `;
+      await pool.query(
+        `INSERT INTO assets (id, name, no_register, kode_barang, no_pabrik, no_polisi, category, sub_category, asal_usul, qty, price, condition, location, tahun, image)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)`,
+        [
+          asset.id,
+          asset.name,
+          asset.noRegister,
+          asset.kodeBarang,
+          asset.noPabrik,
+          asset.noPolisi,
+          asset.category,
+          asset.subCategory,
+          asset.asalUsul,
+          asset.qty,
+          asset.price,
+          asset.condition,
+          asset.location,
+          asset.tahun,
+          asset.image,
+        ]
+      );
     }
   }
 }
 
 function ready(): Promise<void> {
-  if (!globalForNeon.inventarisReady) {
-    globalForNeon.inventarisReady = migrate().catch((error) => {
-      globalForNeon.inventarisReady = undefined;
+  if (!globalForPool.inventarisReady) {
+    globalForPool.inventarisReady = migrate().catch((error) => {
+      globalForPool.inventarisReady = undefined;
       throw error;
     });
   }
-  return globalForNeon.inventarisReady;
+  return globalForPool.inventarisReady;
 }
 
 export function createPostgresStore(_connectionString: string): AssetStore {
   return {
     async list() {
       await ready();
-      const sql = getSql();
-      const result = await sql`SELECT * FROM assets ORDER BY created_at DESC, id DESC`;
-      return rows<AssetRow>(result).map(toAsset);
+      const pool = getPool();
+      const { rows } = await pool.query<AssetRow>(
+        "SELECT * FROM assets ORDER BY created_at DESC, id DESC"
+      );
+      return rows.map(toAsset);
     },
 
     async get(id) {
       await ready();
-      const sql = getSql();
-      const result = await sql`SELECT * FROM assets WHERE id = ${id}`;
-      const r = rows<AssetRow>(result);
-      return r.length ? toAsset(r[0]) : null;
+      const pool = getPool();
+      const { rows } = await pool.query<AssetRow>(
+        "SELECT * FROM assets WHERE id = $1",
+        [id]
+      );
+      return rows.length ? toAsset(rows[0]) : null;
     },
 
     async create(input) {
       await ready();
-      const sql = getSql();
-      const idsResult = await sql`SELECT id FROM assets`;
-      const id = nextAssetId(rows<{ id: string }>(idsResult).map((row) => row.id));
-      const result = await sql`
-        INSERT INTO assets (id, name, no_register, kode_barang, no_pabrik, no_polisi, category, sub_category, asal_usul, qty, price, condition, location, tahun, image)
-        VALUES (${id}, ${input.name}, ${input.noRegister}, ${input.kodeBarang}, ${input.noPabrik}, ${input.noPolisi}, ${input.category}, ${input.subCategory}, ${input.asalUsul}, ${input.qty}, ${input.price}, ${input.condition}, ${input.location}, ${input.tahun}, ${input.image})
-        RETURNING *
-      `;
-      return toAsset(rows<AssetRow>(result)[0]);
+      const pool = getPool();
+      const { rows: idRows } = await pool.query<{ id: string }>("SELECT id FROM assets");
+      const id = nextAssetId(idRows.map((row) => row.id));
+
+      const { rows } = await pool.query<AssetRow>(
+        `INSERT INTO assets (id, name, no_register, kode_barang, no_pabrik, no_polisi, category, sub_category, asal_usul, qty, price, condition, location, tahun, image)
+         VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15)
+         RETURNING *`,
+        [
+          id,
+          input.name,
+          input.noRegister,
+          input.kodeBarang,
+          input.noPabrik,
+          input.noPolisi,
+          input.category,
+          input.subCategory,
+          input.asalUsul,
+          input.qty,
+          input.price,
+          input.condition,
+          input.location,
+          input.tahun,
+          input.image,
+        ]
+      );
+      return toAsset(rows[0]);
     },
 
     async update(id, input) {
       await ready();
-      const sql = getSql();
-      const result = await sql`
-        UPDATE assets SET
-          name = ${input.name},
-          no_register = ${input.noRegister},
-          kode_barang = ${input.kodeBarang},
-          no_pabrik = ${input.noPabrik},
-          no_polisi = ${input.noPolisi},
-          category = ${input.category},
-          sub_category = ${input.subCategory},
-          asal_usul = ${input.asalUsul},
-          qty = ${input.qty},
-          price = ${input.price},
-          condition = ${input.condition},
-          location = ${input.location},
-          tahun = ${input.tahun},
-          image = ${input.image}
-        WHERE id = ${id}
-        RETURNING *
-      `;
-      const r = rows<AssetRow>(result);
-      return r.length ? toAsset(r[0]) : null;
+      const pool = getPool();
+      const { rows } = await pool.query<AssetRow>(
+        `UPDATE assets SET
+          name = $2,
+          no_register = $3,
+          kode_barang = $4,
+          no_pabrik = $5,
+          no_polisi = $6,
+          category = $7,
+          sub_category = $8,
+          asal_usul = $9,
+          qty = $10,
+          price = $11,
+          condition = $12,
+          location = $13,
+          tahun = $14,
+          image = $15
+        WHERE id = $1
+        RETURNING *`,
+        [
+          id,
+          input.name,
+          input.noRegister,
+          input.kodeBarang,
+          input.noPabrik,
+          input.noPolisi,
+          input.category,
+          input.subCategory,
+          input.asalUsul,
+          input.qty,
+          input.price,
+          input.condition,
+          input.location,
+          input.tahun,
+          input.image,
+        ]
+      );
+      return rows.length ? toAsset(rows[0]) : null;
     },
 
     async remove(id) {
       await ready();
-      const sql = getSql();
-      const result = await sql`DELETE FROM assets WHERE id = ${id} RETURNING id`;
-      return rows(result).length > 0;
+      const pool = getPool();
+      const { rowCount } = await pool.query(
+        "DELETE FROM assets WHERE id = $1",
+        [id]
+      );
+      return (rowCount ?? 0) > 0;
     },
   };
 }
